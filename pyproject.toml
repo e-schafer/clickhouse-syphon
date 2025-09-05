@@ -1,0 +1,27 @@
+[project]
+name = "clickhouse-syphon"
+version = "0.1.0"
+description = "Bridge pour synchroniser tables ClickHouse vers PostgreSQL"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "clickhouse-connect>=0.7.0",
+    "asyncpg>=0.29.0",
+    "sqlalchemy>=2.0.0",
+    "pydantic>=2.8.0",
+    "pydantic-settings>=2.4.0",
+    "structlog>=24.1.0",
+    "prometheus-client>=0.20.0",
+    "polars>=1.0.0",
+    "pyarrow>=17.0.0",
+    "uvloop>=0.20.0",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.12.12",
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=5.0.0",
+    "pre-commit>=3.8.0",
+]
