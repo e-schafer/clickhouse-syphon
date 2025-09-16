@@ -1,0 +1,43 @@
+version: "3.8"
+
+services:
+    clickhouse:
+        image: clickhouse/clickhouse-server:latest
+        container_name: clickhouse-db
+        ports:
+            - "8123:8123" # HTTP interface
+            - "9000:9000" # Native interface
+            - "9004:9004" # MySQL interface
+        environment:
+            CLICKHOUSE_DB: default
+            CLICKHOUSE_USER: admin
+            CLICKHOUSE_PASSWORD: admin
+            CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+        volumes:
+            - clickhouse_data:/var/lib/clickhouse
+        networks:
+            - db_network
+
+    postgresql:
+        image: postgres:15
+        container_name: postgresql-db
+        ports:
+            - "5432:5432"
+        environment:
+            POSTGRES_DB: postgres
+            POSTGRES_USER: admin
+            POSTGRES_PASSWORD: admin
+            POSTGRES_HOST_AUTH_METHOD: md5
+            POSTGRES_INITDB_ARGS: "--auth-host=md5 --auth-local=md5"
+        volumes:
+            - postgres_data:/var/lib/postgresql/data
+        networks:
+            - db_network
+
+volumes:
+    clickhouse_data:
+    postgres_data:
+
+networks:
+    db_network:
+        driver: bridge

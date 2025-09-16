@@ -1,0 +1,20 @@
+# Use Astral uv image with Python 3.13
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm
+
+# Set working directory
+WORKDIR /app
+
+# Copy dependency files first for better layer caching
+COPY pyproject.toml uv.lock* ./
+
+# Install dependencies using uv (no need to install uv separately as it's in the base image)
+RUN uv sync --frozen --no-dev
+
+# Copy application code (done after deps for better cache utilization)
+COPY . .
+
+# Set environment to use the uv-managed environment
+ENV UV_PROJECT_ENVIRONMENT=/app/.venv
+
+# Run the application using uv
+CMD ["uv", "run", "python", "-m", "main"]
