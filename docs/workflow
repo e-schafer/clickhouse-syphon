@@ -1,0 +1,352 @@
+# Syphon Workflow Documentation
+
+## Overview
+
+The syphon module implements a data extraction and processing pipeline that siphons data from various sources, processes it through configurable stages, and outputs the results.
+
+## Syphon Class
+
+The `Syphon` class is the core component responsible for data synchronization between source and target databases. It provides a robust, configurable pipeline for copying data with support for incremental synchronization, parallel processing, and error handling.
+
+### Class Overview
+
+```python
+class Syphon:
+    """
+    Data synchronization class for copying data between source and target databases.
+
+    Supports both direct parameter initialization and TableConfig-based initialization
+    for flexible configuration management.
+    """
+```
+
+### Initialization
+
+The Syphon class is initialized with a `TableConfig` object that contains all synchronization parameters:
+
+```python
+def __init__(self, config: TableConfig) -> None
+```
+
+**Parameters:**
+
+-   `config (TableConfig)`: Configuration object containing all sync parameters
+
+**Initialized attributes:**
+
+-   `source_uri`: Resolved source database connection URI
+-   `target_uri`: Resolved target database connection URI
+-   `source_table`: Name of source table to sync from
+-   `target_table`: Name of target table to sync to
+-   `primary_keys`: List of primary key columns for conflict resolution
+-   `sync_mode`: Synchronization mode ("incremental" or "rewind")
+-   `sync_column`: Column used for checkpoint tracking (e.g., "created_at")
+-   `batch_size`: Number of rows to process per batch
+-   `number_of_workers`: Number of parallel worker threads
+-   `source_engine`: SQLAlchemy engine for source database
+-   `target_engine`: SQLAlchemy engine for target database
+
+## Core Methods
+
+### 1. run() - Main Entry Point
+
+```python
+def run(self) -> int
+```
+
+**Purpose:** Public method to run the complete synchronization process.
+
+**Returns:**
+
+-   `0` for success
+-   `1` for failure
+
+**Process:**
+
+1. Logs synchronization start with configuration details
+2. Calls the internal `copy()` method
+3. Handles top-level exceptions
+4. Logs completion status
+5. Returns exit code
+
+### 2. copy() - Core Synchronization Logic
+
+```python
+def copy(self) -> int
+```
+
+**Purpose:** Main internal method that orchestrates the data copying process.
+
+**Process:**
+
+1. **Connection Management:** Establishes connections to source and target databases
+2. **Query Building:** Constructs source query with optional checkpoint filtering
+3. **Staging Preparation:** Creates staging table name and truncates if exists
+4. **Data Transfer:** Copies data from source to staging table in parallel batches
+5. **Data Merge:** Merges data from staging to target table using upsert logic
+6. **Cleanup:** Ensures database connections are properly closed
+
+**Returns:**
+
+-   `0` for success
+-   `1` for failure
+
+**Error Handling:** Catches all exceptions, logs them, and returns failure code.
+
+### 3. build_source_query() - Query Construction
+
+```python
+def build_source_query(self, table: str, target_conn: Connection) -> str
+```
+
+**Purpose:** Builds a SQL query for data extraction with optional checkpoint filtering.
+
+**Parameters:**
+
+-   `table (str)`: Source table name
+-   `target_conn (Connection)`: Target database connection for checkpoint retrieval
+
+**Logic:**
+
+-   **Base Query:** `SELECT * FROM {table}`
+-   **Incremental Mode:** Adds `WHERE {sync_column} > '{checkpoint}'` if checkpoint exists
+-   **Rewind Mode:** Processes all data without filtering
+
+**Returns:** Complete SQL query string
+
+### 4. retrieve_checkpoint() - Checkpoint Management
+
+```python
+def retrieve_checkpoint(self, target_conn: Connection, table: str, column: str)
+```
+
+**Purpose:** Retrieves the maximum value from a specified column to determine the sync checkpoint.
+
+**Parameters:**
+
+-   `target_conn (Connection)`: Target database connection
+-   `table (str)`: Target table name
+-   `column (str)`: Column to get maximum value from
+
+**Query:** `SELECT MAX({column}) AS max_value FROM {table}`
+
+**Returns:** Maximum value or `None` if no data found
+
+### 5. copy_data_to_staging() - Parallel Data Transfer
+
+```python
+def copy_data_to_staging(
+    self,
+    source_engine: Engine,
+    source_query: str,
+    target_engine: Engine,
+    target_table_name: str,
+) -> None
+```
+
+**Purpose:** Copies data from source to staging table using parallel processing.
+
+**Key Features:**
+
+-   **Batch Processing:** Uses Polars to read data in configurable batch sizes
+-   **Parallel Execution:** Utilizes `ThreadPoolExecutor` with configurable worker count
+-   **Dedicated Connections:** Each worker thread uses its own database connection
+-   **Progress Tracking:** Logs completion status every 10 batches
+-   **Error Handling:** Propagates exceptions from worker threads
+
+**Process:**
+
+1. Read data from source in batches using `pl.read_database(iter_batches=True)`
+2. Convert iterator to list of indexed batches for parallel processing
+3. Submit batch write operations to thread pool
+4. Wait for all futures to complete and handle exceptions
+5. Log final completion status
+
+### 6. truncate_staging() - Staging Table Management
+
+```python
+def truncate_staging(self, staging_table: str, target_conn: Connection) -> None
+```
+
+**Purpose:** Truncates the staging table if it exists to ensure clean state.
+
+**Process:**
+
+1. Use SQLAlchemy inspector to check if table exists
+2. If exists: Execute `TRUNCATE TABLE {staging_table}` and commit
+3. If not exists: Log that no truncation is needed
+
+### 7. merge_copy() - Upsert Logic
+
+```python
+def merge_copy(
+    self,
+    target_conn: Connection,
+    staging_table_name: str,
+    columns_pk: list[str],
+) -> None
+```
+
+**Purpose:** Merges data from staging table into target table using PostgreSQL upsert syntax.
+
+**Process:**
+
+1. **Schema Discovery:** Reads staging table schema to identify non-PK columns
+2. **Conflict Resolution:** Generates `ON CONFLICT DO UPDATE SET` clause
+3. **Query Execution:** Executes insert with conflict handling
+4. **Logging:** Reports number of rows merged
+
+**SQL Pattern:**
+
+```sql
+INSERT INTO {target_table}
+SELECT * FROM {staging_table}
+ON CONFLICT ({primary_keys}) DO UPDATE SET
+    column1 = EXCLUDED.column1,
+    column2 = EXCLUDED.column2,
+    ...
+```
+
+## Workflow Process
+
+### Sequence Diagram
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Syphon
+    participant SourceDB as Source Database
+    participant TargetDB as Target Database
+    participant ThreadPool as Thread Pool
+    participant StagingTable as Staging Table
+
+    Client->>Syphon: run()
+
+    Note over Syphon: Initialize connections
+    Syphon->>TargetDB: connect()
+    Syphon->>SourceDB: connect()
+
+    Note over Syphon: Retrieve checkpoint
+    Syphon->>TargetDB: SELECT MAX(sync_column) FROM target_table
+    TargetDB-->>Syphon: checkpoint_value
+
+    Note over Syphon: Build source query
+    Syphon->>Syphon: build_source_query(checkpoint)
+
+    Note over Syphon: Prepare staging
+    Syphon->>TargetDB: Check if staging table exists
+    TargetDB-->>Syphon: table_exists
+
+    alt staging table exists
+        Syphon->>TargetDB: TRUNCATE TABLE staging_table
+        TargetDB-->>Syphon: success
+    end
+
+    Note over Syphon: Parallel data transfer
+    Syphon->>SourceDB: pl.read_database(query, iter_batches=True)
+    SourceDB-->>Syphon: data_iterator
+
+    Syphon->>Syphon: Convert to batches list
+
+    loop For each batch
+        Syphon->>ThreadPool: submit(write_batch, batch_data)
+        ThreadPool->>TargetDB: connect() (dedicated connection)
+        ThreadPool->>StagingTable: df.write_database(batch)
+        StagingTable-->>ThreadPool: success
+        ThreadPool-->>Syphon: batch_complete
+    end
+
+    Note over Syphon: Wait for all batches
+    Syphon->>ThreadPool: future.result() for all futures
+    ThreadPool-->>Syphon: all_batches_complete
+
+    Note over Syphon: Merge data
+    Syphon->>StagingTable: SELECT * FROM staging_table WHERE 1=0 (schema)
+    StagingTable-->>Syphon: table_schema
+
+    Syphon->>Syphon: Generate upsert query
+
+    Syphon->>TargetDB: INSERT INTO target_table SELECT * FROM staging_table ON CONFLICT...
+    TargetDB-->>Syphon: rows_affected
+
+    Note over Syphon: Cleanup
+    Syphon->>SourceDB: close()
+    Syphon->>TargetDB: close()
+
+    Syphon-->>Client: exit_code (0=success, 1=failure)
+```
+
+### Complete Synchronization Flow
+
+1. **Initialization**
+
+    - Parse configuration
+    - Resolve database URIs
+    - Create database engines
+
+2. **Checkpoint Retrieval**
+
+    - Query target table for maximum sync column value
+    - Determine starting point for incremental sync
+
+3. **Query Construction**
+
+    - Build source query with optional WHERE clause
+    - Apply checkpoint filtering for incremental mode
+
+4. **Staging Preparation**
+
+    - Generate staging table name (`{target_table}_staging`)
+    - Truncate staging table if it exists
+
+5. **Parallel Data Transfer**
+
+    - Read source data in configurable batches
+    - Process batches in parallel using thread pool
+    - Write each batch to staging table
+
+6. **Data Merge**
+
+    - Discover table schema for conflict resolution
+    - Execute upsert from staging to target table
+    - Handle primary key conflicts with UPDATE
+
+7. **Cleanup & Reporting**
+    - Close database connections
+    - Log success/failure status
+    - Return appropriate exit code
+
+### Sync Modes
+
+#### Incremental Mode
+
+-   Uses checkpoint from previous sync
+-   Only processes records newer than checkpoint
+-   Efficient for large tables with timestamp columns
+-   Ideal for continuous synchronization
+
+#### Rewind Mode
+
+-   Processes all data regardless of checkpoint
+-   Useful for full table refresh
+-   Higher resource usage but ensures completeness
+
+### Performance Features
+
+-   **Parallel Processing:** Configurable worker threads for concurrent batch writes
+-   **Batch Processing:** Configurable batch sizes to optimize memory usage
+-   **Connection Pooling:** Dedicated connections per worker to avoid conflicts
+-   **Progress Monitoring:** Detailed logging with execution time tracking
+-   **Error Resilience:** Comprehensive exception handling with cleanup
+
+### Configuration Options
+
+All configuration is managed through the `TableConfig` class:
+
+-   `source_uri` / `target_uri`: Database connection strings
+-   `source_table` / `target_table`: Table names
+-   `primary_keys`: List of primary key columns
+-   `sync_mode`: "incremental" or "rewind"
+-   `sync_column`: Column for checkpoint tracking
+-   `batch_size`: Rows per batch (default: 100,000)
+-   `number_of_workers`: Parallel threads (default: 4)
