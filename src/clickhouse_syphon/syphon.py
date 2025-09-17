@@ -3,9 +3,9 @@ from concurrent.futures import ThreadPoolExecutor
 import polars as pl
 from loguru import logger
 from sqlalchemy import Connection, Engine, create_engine, inspect, text
-from utils import log_execution_time
 
-from config import TableConfig
+from .config import TableConfig
+from .utils import log_execution_time
 
 
 class Syphon:

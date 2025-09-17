@@ -1,10 +1,10 @@
 import os
 
 from loguru import logger
-from syphon import Syphon
-from utils import log_execution_time
 
-from config import Config, TableConfig
+from clickhouse_syphon.config import Config, TableConfig
+from clickhouse_syphon.syphon import Syphon
+from clickhouse_syphon.utils import log_execution_time
 
 
 @log_execution_time
@@ -42,4 +42,13 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    exit(main())
+    try:
+        from dotenv import load_dotenv
+
+        load_dotenv()
+        logger.info("Loaded environment variables from .env file")
+        main()
+    except ImportError:
+        logger.debug("python-dotenv not available, skipping .env file loading")
+    except Exception as e:
+        logger.debug(f"No .env file found or error loading it: {e}")
