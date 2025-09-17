@@ -15,8 +15,8 @@ Script to create and populate a ClickHouse table with 1 million records.
 Each ID (0-200) has daily records with realistic access patterns.
 """
 
-NUMBER_OF_CAMPAIGNS = 1000
-NUMBER_OF_RECORDS = 10000000
+NUMBER_OF_CAMPAIGNS = 3000
+NUMBER_OF_RECORDS = 10300004
 TABLE_NAME = "campagne"
 
 
@@ -65,6 +65,7 @@ def generate_data(connection: Connection, id: int):
         ),
         bulk,
     )
+
     connection.commit()
 
 
@@ -96,7 +97,7 @@ def main() -> None:
     Main function to create table and populate with N records.
     """
     # Connection parameters
-    source_url = os.environ["SOURCE_URL"]
+    source_url = os.environ["SOURCE_URI"]
 
     # Create engine and connection for initial setup
     engine = create_engine(source_url)
@@ -126,7 +127,7 @@ def main() -> None:
         generate_data(conn, campaign_id)
 
     # Use ThreadPoolExecutor with 5 workers for parallel execution
-    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
         # Submit all campaign processing tasks
         futures = [executor.submit(process_campaign, campaign_id) for campaign_id in range(NUMBER_OF_CAMPAIGNS)]
 
