@@ -23,8 +23,13 @@ package-dir = { "" = "src" }
 where = ["src"]
 
 [dependency-groups]
-dev = ["ruff>=0.12.12", "python-dotenv>=1.0.0"]
-test = ["pytest>=8.0.0", "pytest-cov>=5.0.0"]
+dev = [
+    "ruff>=0.12.12",
+    "python-dotenv>=1.0.0",
+    "pytest>=8.0.0",
+    "pytest-cov>=5.0.0",
+]
+
 
 [tool.ruff]
 line-length = 120
