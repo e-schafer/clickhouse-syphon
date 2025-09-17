@@ -3,6 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 import polars as pl
 from loguru import logger
 from sqlalchemy import Connection, Engine, create_engine, inspect, text
+from utils import log_execution_time
 
 from config import TableConfig
 
@@ -240,9 +241,13 @@ ON CONFLICT ({pk_columns_str}) DO UPDATE SET
         Returns:
             int: Exit code (0 for success, 1 for failure)
         """
-        target_conn: Connection = self.target_engine.connect()
-        source_conn: Connection = self.source_engine.connect()
+        source_conn = None
+        target_conn = None
+
         try:
+            target_conn = self.target_engine.connect()
+            source_conn = self.source_engine.connect()
+
             # Build source query with optional checkpoint filtering using config
             source_query = self.build_source_query(self.source_table, target_conn)
 
@@ -263,8 +268,10 @@ ON CONFLICT ({pk_columns_str}) DO UPDATE SET
             logger.exception(e)
             return 1
         finally:
-            source_conn.close()
-            target_conn.close()
+            if source_conn is not None:
+                source_conn.close()
+            if target_conn is not None:
+                target_conn.close()
 
     def run(self) -> int:
         """
@@ -277,7 +284,11 @@ ON CONFLICT ({pk_columns_str}) DO UPDATE SET
         logger.info(f"Sync mode: {self.sync_mode}, Sync column: {self.sync_column}")
         logger.info(f"Batch size: {self.batch_size:,}, Workers: {self.number_of_workers}")
 
-        result = self.copy()
+        try:
+            result = self.copy()
+        except Exception as e:
+            logger.exception(f"Error during synchronization: {e}")
+            result = 1
 
         if result == 0:
             logger.info(f"Successfully completed synchronization: {self.source_table} -> {self.target_table}")
