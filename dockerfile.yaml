@@ -7,14 +7,18 @@ WORKDIR /app
 # Copy dependency files first for better layer caching
 COPY pyproject.toml uv.lock* ./
 
-# Install dependencies using uv (no need to install uv separately as it's in the base image)
-RUN uv sync --frozen --no-dev
+# Install dependencies using uv (include dev dependencies for testing)
+RUN uv sync --frozen
 
 # Copy application code (done after deps for better cache utilization)
-COPY . .
+COPY src/ ./
 
-# Set environment to use the uv-managed environment
-ENV UV_PROJECT_ENVIRONMENT=/app/.venv
+# Add src to Python path for proper module resolution
+ENV PYTHONPATH=/app
 
-# Run the application using uv
-CMD ["uv", "run", "python", "-m", "main"]
+# Create a non-root user for security
+RUN useradd --create-home --shell /bin/bash app && chown -R app:app /app
+USER app
+
+# Default command - can be overridden
+CMD ["uv", "run", "main.py"]

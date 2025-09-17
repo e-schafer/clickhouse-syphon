@@ -11,7 +11,7 @@ from loguru import logger
 from sqlalchemy import Connection, create_engine, text
 
 """
-Script to create and populate a ClickHouse table with 1 million records.
+Script to create and populate a ClickHouse table with N million records.
 Each ID (0-200) has daily records with realistic access patterns.
 """
 
