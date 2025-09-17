@@ -1,0 +1,35 @@
+# ClickHouse Syphon Configuration
+# Configuration for table data extraction and processing
+#
+# URI Configuration Options:
+# 1. Set source_uri and target_uri with full connection strings
+# 2. Leave source_uri and target_uri empty ("") to use environment variables:
+#    - SOURCE_DATABASE_URI for source connections
+#    - TARGET_DATABASE_URI for target connections
+
+tables:
+  # Example 1: Using environment variables (recommended for security)
+  - source_uri: ""  # Will use SOURCE_DATABASE_URI environment variable
+    source_table: "users"
+    target_uri: ""  # Will use TARGET_DATABASE_URI environment variable
+    target_table: "users"
+    primary_keys: ["user_id", "created_at"]
+    sync_mode: "incremental"  # options: incremental, rewind
+    sync_column: "created_at"
+    batch_size: 100000
+    number_of_workers: 4
+
+  # Example 2: Using explicit URIs in config
+  - source_uri: "clickhouse://admin:password@clickhouse:9000/source_db"
+    source_table: "orders"
+    target_uri: "postgresql://user:password@localhost:5432/target_db"
+    target_table: "orders"
+    primary_keys: ["order_id", "created_at"]
+    sync_mode: "incremental"  # options: incremental, rewind
+    sync_column: "created_at"
+    batch_size: 100000
+    number_of_workers: 4
+
+# Environment Variables (when using empty URIs):
+# export SOURCE_DATABASE_URI="clickhouse://admin:password@localhost:8123/default"
+# export TARGET_DATABASE_URI="postgresql://user:password@localhost:5432/target_db"
