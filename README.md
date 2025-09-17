@@ -12,9 +12,9 @@ Ce bridge devra inclure :
 
 ## core
 
--   fonctionnement par config yaml ou arguments en ligne de commande.
+-   ✅fonctionnement par config yaml ou arguments en ligne de commande.
 -   Trois modes de synchro :
-    -   mode "**incrémental**" : reprend depuis la dernière synchronisation en ce basant sur une colonne de type timestamp ou id auto-incrémenté de la table cible.
+    -   ✅mode "**incrémental**" : reprend depuis la dernière synchronisation en ce basant sur une colonne de type timestamp ou id auto-incrémenté de la table cible.
     -   mode "**rewind**" : reprend depuis une date/ID spécifique et recopie toutes les données jusqu'à la dernière dans la table cible.
     -   mode "**full**": recopie toutes les données de la table source vers la table cible.
 -   deploiement par argocd et argoworflow.
@@ -22,12 +22,12 @@ Ce bridge devra inclure :
 
 ## déploiement
 
--   utilisation d''un fichier de config yaml pour l'execution
+-   ✅utilisation d''un fichier de config yaml pour l'execution
 -   2 types de périodes de synchronisation pour l'instant (mais doit etre configurable) :
     -   périodicité courte (20 minutes)
     -   périodicité longue (24 heures)
--   application sous docker/kubernetes
--   configuration via des fichiers de configuration YAML/JSON
+-   ✅application sous docker/kubernetes
+-   ✅configuration via des fichiers de configuration YAML/JSON
 -   CI/CD avec GitHub Actions
 
 ### Approche
