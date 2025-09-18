@@ -7,12 +7,13 @@ on:
 
 jobs:
     lint_test_job:
-        uses: ./.github/workflows/lint-test.yml
+        uses: ./.github/workflows/lint-test.yaml
+        with:
+            python-version: "3.13"
 
     docker_build_job:
         needs: lint_test_job
         uses: ./.github/workflows/docker-build.yml
         if: needs.lint_test_job.result == 'success' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         secrets: inherit
-        with:
-            python-version: "3.13"
+        # no inputs required by docker-build.yml (it uses workflow_call without inputs)
