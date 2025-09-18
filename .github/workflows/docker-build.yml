@@ -1,10 +1,7 @@
 name: Docker build & push
 
 on:
-    push:
-        branches: [main]
-    pull_request:
-        branches: [main, develop]
+    workflow_call: {}
 
 env:
     REGISTRY: ghcr.io
