@@ -7,7 +7,7 @@ on:
 
 jobs:
     lint_test_job:
-        uses: ./.github/workflows/lint-test.yaml
+        uses: ./.github/workflows/lint-test.yml
         with:
             python-version: "3.13"
 
