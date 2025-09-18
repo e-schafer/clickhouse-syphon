@@ -1,174 +1,49 @@
 # ClickHouse Syphon
 
-**Bridge de synchronisation haute performance entre ClickHouse et PostgreSQL pour production.**
+## Objectifs
 
-## 🎯 Vue d'ensemble
+Bridge en Python pour gérer la synchronisation de plusieurs tables de ClickHouse vers PostgreSQL.
 
-ClickHouse Syphon est un système de synchronisation conçu pour transférer efficacement des données de ClickHouse vers PostgreSQL avec des capacités avancées de monitoring, parallélisation et récupération d'erreurs.
+## Description du fonctionnement du bridge
 
-## ⚡ Objectifs de Performance
+Ce bridge devra inclure :
 
--   **Performance** : 5x plus rapide que la fréquence de synchronisation
--   **Fiabilité** : Récupération automatique d'erreurs et reprises intelligentes
--   **Scalabilité** : Parallélisation et gestion optimisée de la RAM
--   **Observabilité** : Monitoring complet avec Prometheus/Grafana
--   **Opérabilité** : Déploiement Kubernetes natif avec ArgoWorkflow
+### Fonctionnalités principales
 
-## 🚀 Status du Projet
+## core
 
-### ✅ Étape 1 - Connexions Bases de Données (TERMINÉ)
+-   ✅fonctionnement par config yaml ou arguments en ligne de commande.
+-   Trois modes de synchro :
+    -   ✅mode "**incrémental**" : reprend depuis la dernière synchronisation en ce basant sur une colonne de type timestamp ou id auto-incrémenté de la table cible.
+    -   mode "**rewind**" : reprend depuis une date/ID spécifique et recopie toutes les données jusqu'à la dernière dans la table cible.
+    -   mode "**full**": recopie toutes les données de la table source vers la table cible.
+-   deploiement par argocd et argoworflow.
+-   fonctionnement dry-run pour tester les configs sans exécuter les synchronisations. Ce mode permet de valider la configuration et de simuler les opérations sans modifier les données réelles. Doit fournir un rapport détaillé des actions qui auraient été effectuées.
 
--   Configuration Pydantic avec validation de sécurité
--   Gestionnaires de connexions async (ClickHouse + PostgreSQL)
--   Context managers avec gestion d'erreurs
--   Tests complets (21/21 ✅)
+## déploiement
 
-### 🔄 Étapes Suivantes
+-   ✅utilisation d''un fichier de config yaml pour l'execution
+-   2 types de périodes de synchronisation pour l'instant (mais doit etre configurable) :
+    -   périodicité courte (20 minutes)
+    -   périodicité longue (24 heures)
+-   ✅application sous docker/kubernetes
+-   ✅configuration via des fichiers de configuration YAML/JSON
+-   CI/CD avec GitHub Actions
 
--   **Étape 2** : Delta et Recovery mechanics
--   **Étape 3** : Parallélisation et load balancing
--   **Étape 4** : Logging et monitoring
--   **Étape 5** : Déploiement Kubernetes
+### Approche
 
-## 🏗️ Architecture
+Création du bridge généralisé basé sur la compréhension du travail spécifique réalisé pour en extraire des règles générales.
 
-Le système utilise une architecture moderne basée sur :
+## Livrable attendu
 
--   **Python 3.13+** avec AsyncIO
--   **ClickHouse** (source) via clickhouse-connect
--   **PostgreSQL** (cible) via asyncpg
--   **Pydantic v2** pour la configuration
--   **Polars** pour le traitement de données
--   **Prometheus** pour les métriques
--   **Kubernetes** pour l'orchestration
+### Bridge opérationnel en production
 
-## 📁 Structure du Projet
+-   Configuration via fichiers de configuration
+-   CI/CD respectant le Trunk-based développement avec l'équipe Infra si besoin
+-   Tests unitaires et tests d'intégration
+-   Monitoring en place en collaboration avec l'équipe Infra
 
-```
-clickhouse-syphon/
-├── clickhouse_syphon/
-│   ├── config.py          # Configuration Pydantic
-│   ├── database.py        # Gestionnaires de connexions
-│   └── __init__.py
-├── tests/
-│   ├── test_step1_simple.py         # Tests configuration
-│   └── test_step1_connections_fixed.py  # Tests connexions
-├── config/
-│   └── tables.yaml        # Configuration des tables
-├── docs/
-│   ├── ARCHITECTURE.md    # Documentation architecture complète
-│   └── STEP1_COMPLETE.md  # Status étape 1
-└── pyproject.toml         # Configuration uv/Python
-```
+### Documentation fournie
 
-## 🚀 Quick Start
-
-### Prérequis
-
--   Python 3.13+
--   uv (gestionnaire de paquets)
--   ClickHouse accessible
--   PostgreSQL accessible
-
-### Installation
-
-```bash
-# Cloner le repository
-git clone <repo-url>
-cd clickhouse-syphon
-
-# Installer les dépendances
-uv sync
-
-# Configurer l'environnement
-cp config/tables.yaml.example config/tables.yaml
-# Éditer config/tables.yaml avec vos paramètres
-
-# Lancer les tests
-uv run python -m pytest tests/ -v
-```
-
-### Configuration
-
-```yaml
-# config/tables.yaml
-clickhouse:
-    host: "localhost"
-    port: 9000
-    username: "default"
-    password: "your-password"
-
-postgresql:
-    host: "localhost"
-    port: 5432
-    username: "postgres"
-    password: "your-password"
-    database: "target_db"
-
-tables:
-    - name: "events"
-      source_table: "events"
-      target_table: "events_sync"
-      sync_mode: "incremental"
-      timestamp_column: "created_at"
-```
-
-## 🧪 Tests
-
-```bash
-# Tous les tests
-uv run python -m pytest tests/ -v
-
-# Tests spécifiques
-uv run python -m pytest tests/test_step1_simple.py -v
-uv run python -m pytest tests/test_step1_connections_fixed.py -v
-```
-
-## 📊 Monitoring
-
-Le système expose des métriques Prometheus :
-
--   `syphon_sync_duration_seconds` - Durée des synchronisations
--   `syphon_rows_processed_total` - Lignes traitées
--   `syphon_sync_errors_total` - Erreurs de synchronisation
--   `syphon_active_workers` - Workers actifs
-
-## 🐳 Déploiement
-
-### Docker
-
-```bash
-# Construction de l'image
-docker build -t clickhouse-syphon .
-
-# Exécution
-docker run -v $(pwd)/config:/app/config clickhouse-syphon
-```
-
-### Kubernetes
-
-```bash
-# Déploiement avec Helm
-helm install syphon ./charts/clickhouse-syphon
-```
-
-## 📚 Documentation
-
--   [Architecture Complète](docs/ARCHITECTURE.md) - Diagrammes C4, algorithmes et patterns
--   [Étape 1 Status](docs/STEP1_COMPLETE.md) - Détails de l'implémentation actuelle
-
-## 🤝 Contribution
-
-1. Fork le projet
-2. Créer une branche feature
-3. Commit les changements
-4. Pousser vers la branche
-5. Ouvrir une Pull Request
-
-## 📄 Licence
-
-Ce projet est sous licence MIT. Voir le fichier [LICENSE](LICENSE) pour plus de détails.
-
----
-
-**Développé avec ❤️ pour une synchronisation de données haute performance**
+-   Modèle C4
+-   Limites identifiées et améliorations possibles

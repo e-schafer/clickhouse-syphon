@@ -1,0 +1,24 @@
+# Use Astral uv image with Python 3.13
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm
+
+# Set working directory
+WORKDIR /app
+
+# Copy dependency files first for better layer caching
+COPY pyproject.toml uv.lock* ./
+
+# Install dependencies using uv (include dev dependencies for testing)
+RUN uv sync --frozen
+
+# Copy application code (done after deps for better cache utilization)
+COPY src/ ./
+
+# Add src to Python path for proper module resolution
+ENV PYTHONPATH=/app
+
+# Create a non-root user for security
+RUN useradd --create-home --shell /bin/bash app && chown -R app:app /app
+USER app
+
+# Default command - can be overridden
+CMD ["uv", "run", "main.py"]
