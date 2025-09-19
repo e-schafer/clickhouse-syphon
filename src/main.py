@@ -46,9 +46,8 @@ if __name__ == "__main__":
         from dotenv import load_dotenv
 
         load_dotenv()
-        logger.info("Loaded environment variables from .env file")
-        main()
     except ImportError:
         logger.debug("python-dotenv not available, skipping .env file loading")
     except Exception as e:
         logger.debug(f"No .env file found or error loading it: {e}")
+    main()

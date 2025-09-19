@@ -1,24 +1,33 @@
-# Use Astral uv image with Python 3.13
-FROM ghcr.io/astral-sh/uv:python3.13-bookworm
 
-# Set working directory
+# Use standard Python image which has better wheel support
+FROM ghcr.io/astral-sh/uv:python3.13-trixie-slim AS production
+
+# Install build and runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+    libffi8 \
+    zstd \
+    openssl \
+    gcc \
+    libc6-dev \
+    pkg-config \
+    libzstd-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
-# Copy dependency files first for better layer caching
+# Copy dependency files and install directly in production
 COPY pyproject.toml uv.lock* ./
 
-# Install dependencies using uv (include dev dependencies for testing)
-RUN uv sync --frozen
+# Install dependencies (using pre-compiled wheels when available)
+RUN uv sync --frozen --no-dev
 
-# Copy application code (done after deps for better cache utilization)
+# Copy application code
 COPY src/ ./
 
-# Add src to Python path for proper module resolution
-ENV PYTHONPATH=/app
-
 # Create a non-root user for security
-RUN useradd --create-home --shell /bin/bash app && chown -R app:app /app
+RUN useradd --create-home --shell /bin/bash --uid 1001 app && chown -R app:app /app
 USER app
 
-# Default command - can be overridden
-CMD ["uv", "run", "main.py"]
+# Default command
+CMD ["uv","run", "--no-dev", "main.py"]
